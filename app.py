@@ -6,6 +6,10 @@ BOARD_SIZE = 5
 DEFAULT_SEARCH_DEPTH = 2
 
 st.set_page_config(page_title="Mini-Go AI", page_icon="⚫", layout="wide")
+
+# ------------------------
+# Styling
+# ------------------------
 st.markdown(
     """
     <style>
@@ -119,19 +123,45 @@ if "game_over" not in st.session_state: st.session_state.game_over = False
 def is_board_full(board):
     return all(cell != "." for row in board for cell in row)
 
+def no_moves_left(board, player):
+    for r in range(BOARD_SIZE):
+        for c in range(BOARD_SIZE):
+            if apply_move(board,r,c,player): return False
+    return True
+
 def check_game_over():
-    if is_board_full(st.session_state.board):
+    if is_board_full(st.session_state.board) or (
+        no_moves_left(st.session_state.board,"W") and no_moves_left(st.session_state.board,"B")
+    ):
         st.session_state.game_over = True
 
 def declare_winner():
     val = heuristic(st.session_state.board,"B")
     if val > 0:
-        st.markdown("<div class='winner'>🏆 Black (AI) wins!</div>",unsafe_allow_html=True)
+        st.markdown(
+            "<div class='winner'>🏆 Black (AI) wins by {} stones!</div>".format(val),
+            unsafe_allow_html=True
+        )
     elif val < 0:
-        st.markdown("<div class='winner'>🏆 White (You) win!</div>",unsafe_allow_html=True)
+        st.markdown(
+            "<div class='winner'>🏆 White (You) win by {} stones!</div>".format(-val),
+            unsafe_allow_html=True
+        )
     else:
-        st.markdown("<div class='draw'>🤝 It's a draw!</div>",unsafe_allow_html=True)
+        st.markdown("<div class='draw'>🤝 It's a draw!</div>", unsafe_allow_html=True)
 
+def projected_winner():
+    val = heuristic(st.session_state.board,"B")
+    if val > 0:
+        st.info(f"📊 Currently Winning: Black (+{val})")
+    elif val < 0:
+        st.info(f"📊 Currently Winning: White (+{-val})")
+    else:
+        st.info("📊 Currently Balanced")
+
+# ------------------------
+# Moves
+# ------------------------
 def play_human(r,c):
     if st.session_state.turn!="W" or st.session_state.game_over: return
     new_b = apply_move(st.session_state.board,r,c,"W")
@@ -162,16 +192,20 @@ col_board, col_sidebar = st.columns([3,1])
 with col_sidebar:
     st.subheader("📊 Advantage Meter")
     val = heuristic(st.session_state.board,"B")
-    # scale val between 0–100
     max_range = BOARD_SIZE*BOARD_SIZE
     pct = int((val + max_range) / (2*max_range) * 100)
     st.markdown(
         f"""
-        <div style="height:300px;width:40px;border-radius:8px;overflow:hidden;background:linear-gradient(to top,#111 0%,#111 {pct}%,#f9fafb {pct}%,#f9fafb 100%);margin:auto"></div>
+        <div style="height:300px;width:40px;border-radius:8px;overflow:hidden;
+        background:linear-gradient(to top,#111 0%,#111 {pct}%,#f9fafb {pct}%,#f9fafb 100%);
+        margin:auto"></div>
         <p style="text-align:center;font-weight:bold">⚫ {pct}% | ⚪ {100-pct}%</p>
         """,
         unsafe_allow_html=True
     )
+
+    projected_winner()
+
     if st.session_state.game_over:
         declare_winner()
 
