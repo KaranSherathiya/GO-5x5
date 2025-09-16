@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 import copy, math
 from datetime import datetime
@@ -7,7 +6,25 @@ BOARD_SIZE = 5
 DEFAULT_SEARCH_DEPTH = 2
 
 st.set_page_config(page_title="Mini-Go AI", page_icon="⚫", layout="wide")
-st.title("⚫ Mini-Go (5×5) — Alpha-Beta AI")
+st.markdown(
+    """
+    <style>
+    .turn-banner {
+        padding: 10px;
+        border-radius: 8px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 12px;
+        font-size: 18px;
+    }
+    .white-turn { background: linear-gradient(90deg, #e8fff5, #d1fae5); color:#065f46; }
+    .black-turn { background: linear-gradient(90deg, #eef2ff, #e0e7ff); color:#3730a3; }
+    .winner { background: linear-gradient(90deg, #fff7ed, #fde68a); color:#78350f; padding:12px; border-radius:10px; text-align:center; font-weight:bold; font-size:20px; margin:10px 0; }
+    .draw { background:#f3f4f6; color:#374151; padding:12px; border-radius:10px; text-align:center; font-weight:bold; font-size:20px; margin:10px 0; }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # ------------------------
 # Game mechanics
@@ -97,7 +114,7 @@ if "ai_thinking" not in st.session_state: st.session_state.ai_thinking = False
 if "game_over" not in st.session_state: st.session_state.game_over = False
 
 # ------------------------
-# Game state helpers
+# Game helpers
 # ------------------------
 def is_board_full(board):
     return all(cell != "." for row in board for cell in row)
@@ -107,19 +124,16 @@ def check_game_over():
         st.session_state.game_over = True
 
 def declare_winner():
-    val = heuristic(st.session_state.board, "B")
+    val = heuristic(st.session_state.board,"B")
     if val > 0:
-        st.success("🏆 Black (AI) wins!")
+        st.markdown("<div class='winner'>🏆 Black (AI) wins!</div>",unsafe_allow_html=True)
     elif val < 0:
-        st.success("🏆 White (You) win!")
+        st.markdown("<div class='winner'>🏆 White (You) win!</div>",unsafe_allow_html=True)
     else:
-        st.info("🤝 It's a draw!")
+        st.markdown("<div class='draw'>🤝 It's a draw!</div>",unsafe_allow_html=True)
 
-# ------------------------
-# Moves
-# ------------------------
 def play_human(r,c):
-    if st.session_state.turn != "W" or st.session_state.game_over: return
+    if st.session_state.turn!="W" or st.session_state.game_over: return
     new_b = apply_move(st.session_state.board,r,c,"W")
     if new_b:
         st.session_state.board = new_b
@@ -128,9 +142,9 @@ def play_human(r,c):
         check_game_over()
 
 def ai_move(depth):
-    if st.session_state.turn != "B" or st.session_state.game_over: return
+    if st.session_state.turn!="B" or st.session_state.game_over: return
     st.session_state.ai_thinking = True
-    score, mv = minimax(st.session_state.board, depth, -math.inf, math.inf, True, "B")
+    _, mv = minimax(st.session_state.board, depth, -math.inf, math.inf, True, "B")
     if mv:
         new_b = apply_move(st.session_state.board,mv[0],mv[1],"B")
         if new_b:
@@ -148,28 +162,28 @@ col_board, col_sidebar = st.columns([3,1])
 with col_sidebar:
     st.subheader("📊 Advantage Meter")
     val = heuristic(st.session_state.board,"B")
-    pct = int((val + BOARD_SIZE*BOARD_SIZE) / (2*BOARD_SIZE*BOARD_SIZE) * 100)
-    st.progress(pct)
-    if val > 0:
-        st.write(f"Black Advantage: {val}")
-    elif val < 0:
-        st.write(f"White Advantage: {-val}")
-    else:
-        st.write("Balanced")
-
+    # scale val between 0–100
+    max_range = BOARD_SIZE*BOARD_SIZE
+    pct = int((val + max_range) / (2*max_range) * 100)
+    st.markdown(
+        f"""
+        <div style="height:300px;width:40px;border-radius:8px;overflow:hidden;background:linear-gradient(to top,#111 0%,#111 {pct}%,#f9fafb {pct}%,#f9fafb 100%);margin:auto"></div>
+        <p style="text-align:center;font-weight:bold">⚫ {pct}% | ⚪ {100-pct}%</p>
+        """,
+        unsafe_allow_html=True
+    )
     if st.session_state.game_over:
         declare_winner()
 
 with col_board:
-    # Turn Indicator
+    # Turn banner
     if st.session_state.turn=="W" and not st.session_state.game_over:
-        st.markdown("<div style='background:#e6ffe6;padding:8px;border-radius:6px'>⚪ Your Turn</div>",unsafe_allow_html=True)
+        st.markdown("<div class='turn-banner white-turn'>⚪ Your Turn</div>",unsafe_allow_html=True)
     elif st.session_state.turn=="B" and not st.session_state.game_over:
-        st.markdown("<div style='background:#e6f0ff;padding:8px;border-radius:6px'>⚫ AI is thinking...</div>",unsafe_allow_html=True)
+        st.markdown("<div class='turn-banner black-turn'>⚫ AI is Thinking...</div>",unsafe_allow_html=True)
 
-    # Depth selector + reset
     col1,col2 = st.columns([2,1])
-    depth = col1.slider("AI depth",1,4,DEFAULT_SEARCH_DEPTH)
+    depth = col1.slider("AI Depth",1,4,DEFAULT_SEARCH_DEPTH)
     if col2.button("🔄 Reset"):
         st.session_state.board = new_board()
         st.session_state.turn = "W"
@@ -177,18 +191,15 @@ with col_board:
         st.session_state.ai_thinking = False
         st.session_state.game_over = False
 
-    # Board UI
     for r in range(BOARD_SIZE):
         cols = st.columns(BOARD_SIZE)
         for c in range(BOARD_SIZE):
             cell = st.session_state.board[r][c]
             label = "⚪" if cell=="W" else "⚫" if cell=="B" else "➕"
             if cell=="." and st.session_state.turn=="W" and not st.session_state.game_over:
-                if cols[c].button(label,key=f"{r}-{c}"):
-                    play_human(r,c)
+                if cols[c].button(label,key=f"{r}-{c}"): play_human(r,c)
             else:
                 cols[c].button(label,key=f"{r}-{c}",disabled=True)
 
-    # AI move automatically if it's Black's turn
     if st.session_state.turn=="B" and not st.session_state.ai_thinking and not st.session_state.game_over:
         ai_move(depth)
