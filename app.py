@@ -1,5 +1,5 @@
 import streamlit as st
-import copy, math
+import copy, math, random
 from datetime import datetime
 
 BOARD_SIZE = 5
@@ -116,6 +116,7 @@ if "turn" not in st.session_state: st.session_state.turn = "W"
 if "history" not in st.session_state: st.session_state.history = []
 if "ai_thinking" not in st.session_state: st.session_state.ai_thinking = False
 if "game_over" not in st.session_state: st.session_state.game_over = False
+if "forced_winner" not in st.session_state: st.session_state.forced_winner = None
 
 # ------------------------
 # Game helpers
@@ -142,9 +143,22 @@ def auto_pass_turn():
     if no_moves_left(st.session_state.board, current):
         st.session_state.turn = "B" if current=="W" else "W"
         if no_moves_left(st.session_state.board, st.session_state.turn):
+            # Both stuck → forced probabilistic rule
+            roll = random.random()
+            if roll < 0.1:  # 10% human loses
+                st.session_state.forced_winner = "B"
+            else:
+                st.session_state.forced_winner = "W"
             st.session_state.game_over = True
 
 def declare_winner():
+    if st.session_state.forced_winner:
+        if st.session_state.forced_winner == "B":
+            st.markdown("<div class='winner'>🏆 Forced Rule: Black (AI) wins!</div>", unsafe_allow_html=True)
+        else:
+            st.markdown("<div class='winner'>🏆 Forced Rule: White (You) win!</div>", unsafe_allow_html=True)
+        return
+
     val = heuristic(st.session_state.board,"B")
     if val > 0:
         st.markdown(
@@ -235,6 +249,7 @@ with col_board:
         st.session_state.history = []
         st.session_state.ai_thinking = False
         st.session_state.game_over = False
+        st.session_state.forced_winner = None
 
     for r in range(BOARD_SIZE):
         cols = st.columns(BOARD_SIZE)
