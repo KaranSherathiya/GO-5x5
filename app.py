@@ -135,6 +135,15 @@ def check_game_over():
     ):
         st.session_state.game_over = True
 
+def auto_pass_turn():
+    """Skip turn if no legal moves, or end if both stuck"""
+    if st.session_state.game_over: return
+    current = st.session_state.turn
+    if no_moves_left(st.session_state.board, current):
+        st.session_state.turn = "B" if current=="W" else "W"
+        if no_moves_left(st.session_state.board, st.session_state.turn):
+            st.session_state.game_over = True
+
 def declare_winner():
     val = heuristic(st.session_state.board,"B")
     if val > 0:
@@ -169,6 +178,7 @@ def play_human(r,c):
         st.session_state.board = new_b
         st.session_state.history.append(("W",(r,c),datetime.utcnow().isoformat()))
         st.session_state.turn = "B"
+        auto_pass_turn()
         check_game_over()
 
 def ai_move(depth):
@@ -182,6 +192,7 @@ def ai_move(depth):
             st.session_state.history.append(("B",mv,datetime.utcnow().isoformat()))
     st.session_state.turn = "W"
     st.session_state.ai_thinking = False
+    auto_pass_turn()
     check_game_over()
 
 # ------------------------
