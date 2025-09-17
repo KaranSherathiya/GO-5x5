@@ -1,5 +1,5 @@
 import streamlit as st
-import copy, math, random
+import copy, math, random, time
 from datetime import datetime
 
 BOARD_SIZE = 5
@@ -110,8 +110,7 @@ def no_moves_left(board, player):
 
 def end_game_with_forced_rule():
     roll = random.random()
-    if roll < 0.1: st.session_state.forced_winner = "B"
-    else: st.session_state.forced_winner = "W"
+    st.session_state.forced_winner = "B" if roll < 0.1 else "W"
     st.session_state.game_over = True
 
 def auto_pass_turn():
@@ -152,12 +151,36 @@ def play_human(r,c):
 def ai_move(depth):
     if st.session_state.turn!="B" or st.session_state.game_over: return
     st.session_state.ai_thinking = True
-    _, mv = minimax(st.session_state.board, depth, -math.inf, math.inf, True, "B")
-    if mv:
-        new_b = apply_move(st.session_state.board,mv[0],mv[1],"B")
+
+    # If AI is already far ahead, declare it winner immediately
+    current_val = heuristic(st.session_state.board,"B")
+    if current_val > 15:
+        st.session_state.forced_winner = "B"
+        st.session_state.game_over = True
+        st.session_state.ai_thinking = False
+        return
+
+    start_time = time.time()
+    best_val, best_move = None, None
+
+    for r in range(BOARD_SIZE):
+        for c in range(BOARD_SIZE):
+            new_b = apply_move(st.session_state.board,r,c,"B")
+            if not new_b: continue
+            val, _ = minimax(new_b, depth-1, -math.inf, math.inf, False, "B")
+            if best_val is None or val > best_val:
+                best_val, best_move = val, (r,c)
+            if time.time() - start_time > 2:  # cap AI time
+                break
+        if time.time() - start_time > 2:
+            break
+
+    if best_move:
+        new_b = apply_move(st.session_state.board,best_move[0],best_move[1],"B")
         if new_b:
             st.session_state.board = new_b
-            st.session_state.history.append(("B",mv,datetime.utcnow().isoformat()))
+            st.session_state.history.append(("B",best_move,datetime.utcnow().isoformat()))
+
     st.session_state.turn = "W"
     st.session_state.ai_thinking = False
     auto_pass_turn()
