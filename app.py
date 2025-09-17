@@ -7,9 +7,6 @@ DEFAULT_SEARCH_DEPTH = 2
 
 st.set_page_config(page_title="Mini-Go AI", page_icon="⚫", layout="wide")
 
-# ------------------------
-# Styling
-# ------------------------
 st.markdown(
     """
     <style>
@@ -30,9 +27,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ------------------------
-# Game mechanics
-# ------------------------
 def new_board():
     return [["." for _ in range(BOARD_SIZE)] for _ in range(BOARD_SIZE)]
 
@@ -49,8 +43,7 @@ def has_liberty(board, r, c, visited=None):
     color = board[r][c]
     for nr, nc in neighbors(r,c):
         if board[nr][nc] == ".": return True
-        if board[nr][nc] == color and has_liberty(board,nr,nc,visited):
-            return True
+        if board[nr][nc] == color and has_liberty(board,nr,nc,visited): return True
     return False
 
 def remove_dead(board, color):
@@ -71,17 +64,13 @@ def apply_move(board, r, c, player):
     if not has_liberty(new_b, r, c): return None
     return new_b
 
-# ------------------------
-# Heuristic & Alpha-Beta
-# ------------------------
 def heuristic(board, player="B"):
     opp = "B" if player=="W" else "W"
     return sum(row.count(player) for row in board) - sum(row.count(opp) for row in board)
 
 def minimax(board, depth, alpha, beta, maximizing, player):
     opp = "B" if player=="W" else "W"
-    if depth == 0:
-        return heuristic(board, player), None
+    if depth == 0: return heuristic(board, player), None
     best_move = None
     if maximizing:
         max_eval = -math.inf
@@ -90,8 +79,7 @@ def minimax(board, depth, alpha, beta, maximizing, player):
                 new_b = apply_move(board, r, c, player)
                 if not new_b: continue
                 eval_val, _ = minimax(new_b, depth-1, alpha, beta, False, player)
-                if eval_val > max_eval:
-                    max_eval, best_move = eval_val, (r,c)
+                if eval_val > max_eval: max_eval, best_move = eval_val, (r,c)
                 alpha = max(alpha, eval_val)
                 if beta <= alpha: break
         return max_eval, best_move
@@ -102,15 +90,11 @@ def minimax(board, depth, alpha, beta, maximizing, player):
                 new_b = apply_move(board, r, c, opp)
                 if not new_b: continue
                 eval_val, _ = minimax(new_b, depth-1, alpha, beta, True, player)
-                if eval_val < min_eval:
-                    min_eval, best_move = eval_val, (r,c)
+                if eval_val < min_eval: min_eval, best_move = eval_val, (r,c)
                 beta = min(beta, eval_val)
                 if beta <= alpha: break
         return min_eval, best_move
 
-# ------------------------
-# Session state
-# ------------------------
 if "board" not in st.session_state: st.session_state.board = new_board()
 if "turn" not in st.session_state: st.session_state.turn = "W"
 if "history" not in st.session_state: st.session_state.history = []
@@ -118,38 +102,25 @@ if "ai_thinking" not in st.session_state: st.session_state.ai_thinking = False
 if "game_over" not in st.session_state: st.session_state.game_over = False
 if "forced_winner" not in st.session_state: st.session_state.forced_winner = None
 
-# ------------------------
-# Game helpers
-# ------------------------
-def is_board_full(board):
-    return all(cell != "." for row in board for cell in row)
-
 def no_moves_left(board, player):
     for r in range(BOARD_SIZE):
         for c in range(BOARD_SIZE):
             if apply_move(board,r,c,player): return False
     return True
 
-def check_game_over():
-    if is_board_full(st.session_state.board) or (
-        no_moves_left(st.session_state.board,"W") and no_moves_left(st.session_state.board,"B")
-    ):
-        st.session_state.game_over = True
+def end_game_with_forced_rule():
+    roll = random.random()
+    if roll < 0.1: st.session_state.forced_winner = "B"
+    else: st.session_state.forced_winner = "W"
+    st.session_state.game_over = True
 
 def auto_pass_turn():
-    """Skip turn if no legal moves, or end if both stuck"""
     if st.session_state.game_over: return
-    current = st.session_state.turn
-    if no_moves_left(st.session_state.board, current):
-        st.session_state.turn = "B" if current=="W" else "W"
+    cur = st.session_state.turn
+    if no_moves_left(st.session_state.board, cur):
+        st.session_state.turn = "B" if cur=="W" else "W"
         if no_moves_left(st.session_state.board, st.session_state.turn):
-            # Both stuck → forced probabilistic rule
-            roll = random.random()
-            if roll < 0.1:  # 10% human loses
-                st.session_state.forced_winner = "B"
-            else:
-                st.session_state.forced_winner = "W"
-            st.session_state.game_over = True
+            end_game_with_forced_rule()
 
 def declare_winner():
     if st.session_state.forced_winner:
@@ -158,33 +129,17 @@ def declare_winner():
         else:
             st.markdown("<div class='winner'>🏆 Forced Rule: White (You) win!</div>", unsafe_allow_html=True)
         return
-
     val = heuristic(st.session_state.board,"B")
-    if val > 0:
-        st.markdown(
-            "<div class='winner'>🏆 Black (AI) wins by {} stones!</div>".format(val),
-            unsafe_allow_html=True
-        )
-    elif val < 0:
-        st.markdown(
-            "<div class='winner'>🏆 White (You) win by {} stones!</div>".format(-val),
-            unsafe_allow_html=True
-        )
-    else:
-        st.markdown("<div class='draw'>🤝 It's a draw!</div>", unsafe_allow_html=True)
+    if val > 0: st.markdown(f"<div class='winner'>🏆 Black (AI) wins by {val} stones!</div>", unsafe_allow_html=True)
+    elif val < 0: st.markdown(f"<div class='winner'>🏆 White (You) win by {-val} stones!</div>", unsafe_allow_html=True)
+    else: st.markdown("<div class='draw'>🤝 It's a draw!</div>", unsafe_allow_html=True)
 
 def projected_winner():
     val = heuristic(st.session_state.board,"B")
-    if val > 0:
-        st.info(f"📊 Currently Winning: Black (+{val})")
-    elif val < 0:
-        st.info(f"📊 Currently Winning: White (+{-val})")
-    else:
-        st.info("📊 Currently Balanced")
+    if val > 0: st.info(f"📊 Currently Winning: Black (+{val})")
+    elif val < 0: st.info(f"📊 Currently Winning: White (+{-val})")
+    else: st.info("📊 Currently Balanced")
 
-# ------------------------
-# Moves
-# ------------------------
 def play_human(r,c):
     if st.session_state.turn!="W" or st.session_state.game_over: return
     new_b = apply_move(st.session_state.board,r,c,"W")
@@ -193,7 +148,6 @@ def play_human(r,c):
         st.session_state.history.append(("W",(r,c),datetime.utcnow().isoformat()))
         st.session_state.turn = "B"
         auto_pass_turn()
-        check_game_over()
 
 def ai_move(depth):
     if st.session_state.turn!="B" or st.session_state.game_over: return
@@ -207,11 +161,7 @@ def ai_move(depth):
     st.session_state.turn = "W"
     st.session_state.ai_thinking = False
     auto_pass_turn()
-    check_game_over()
 
-# ------------------------
-# Layout
-# ------------------------
 col_board, col_sidebar = st.columns([3,1])
 
 with col_sidebar:
@@ -228,14 +178,10 @@ with col_sidebar:
         """,
         unsafe_allow_html=True
     )
-
     projected_winner()
-
-    if st.session_state.game_over:
-        declare_winner()
+    if st.session_state.game_over: declare_winner()
 
 with col_board:
-    # Turn banner
     if st.session_state.turn=="W" and not st.session_state.game_over:
         st.markdown("<div class='turn-banner white-turn'>⚪ Your Turn</div>",unsafe_allow_html=True)
     elif st.session_state.turn=="B" and not st.session_state.game_over:
