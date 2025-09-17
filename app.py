@@ -4,6 +4,7 @@ from datetime import datetime
 
 BOARD_SIZE = 5
 DEFAULT_SEARCH_DEPTH = 2
+INSTANT_WIN_THRESHOLD = 15  # points lead for instant win
 
 st.set_page_config(page_title="Mini-Go AI", page_icon="⚫", layout="wide")
 
@@ -113,6 +114,12 @@ def end_game_with_forced_rule():
     st.session_state.forced_winner = "B" if roll < 0.1 else "W"
     st.session_state.game_over = True
 
+def check_instant_win():
+    val = heuristic(st.session_state.board,"B")
+    if abs(val) >= INSTANT_WIN_THRESHOLD:
+        st.session_state.game_over = True
+        st.session_state.forced_winner = "B" if val > 0 else "W"
+
 def auto_pass_turn():
     if st.session_state.game_over: return
     cur = st.session_state.turn
@@ -124,9 +131,9 @@ def auto_pass_turn():
 def declare_winner():
     if st.session_state.forced_winner:
         if st.session_state.forced_winner == "B":
-            st.markdown("<div class='winner'>🏆 Forced Rule: Black (AI) wins!</div>", unsafe_allow_html=True)
+            st.markdown("<div class='winner'>🏆 Black (AI) wins!</div>", unsafe_allow_html=True)
         else:
-            st.markdown("<div class='winner'>🏆 Forced Rule: White (You) win!</div>", unsafe_allow_html=True)
+            st.markdown("<div class='winner'>🏆 White (You) win!</div>", unsafe_allow_html=True)
         return
     val = heuristic(st.session_state.board,"B")
     if val > 0: st.markdown(f"<div class='winner'>🏆 Black (AI) wins by {val} stones!</div>", unsafe_allow_html=True)
@@ -145,18 +152,17 @@ def play_human(r,c):
     if new_b:
         st.session_state.board = new_b
         st.session_state.history.append(("W",(r,c),datetime.utcnow().isoformat()))
-        st.session_state.turn = "B"
-        auto_pass_turn()
+        check_instant_win()
+        if not st.session_state.game_over:
+            st.session_state.turn = "B"
+            auto_pass_turn()
 
 def ai_move(depth):
     if st.session_state.turn!="B" or st.session_state.game_over: return
     st.session_state.ai_thinking = True
 
-    # If AI is already far ahead, declare it winner immediately
-    current_val = heuristic(st.session_state.board,"B")
-    if current_val > 15:
-        st.session_state.forced_winner = "B"
-        st.session_state.game_over = True
+    check_instant_win()
+    if st.session_state.game_over:
         st.session_state.ai_thinking = False
         return
 
@@ -181,6 +187,7 @@ def ai_move(depth):
             st.session_state.board = new_b
             st.session_state.history.append(("B",best_move,datetime.utcnow().isoformat()))
 
+    check_instant_win()
     st.session_state.turn = "W"
     st.session_state.ai_thinking = False
     auto_pass_turn()
@@ -203,12 +210,21 @@ with col_sidebar:
     )
     projected_winner()
     if st.session_state.game_over: declare_winner()
+    if st.session_state.game_over:
+        if st.button("▶️ Play Again"):
+            st.session_state.board = new_board()
+            st.session_state.turn = "W"
+            st.session_state.history = []
+            st.session_state.ai_thinking = False
+            st.session_state.game_over = False
+            st.session_state.forced_winner = None
 
 with col_board:
-    if st.session_state.turn=="W" and not st.session_state.game_over:
-        st.markdown("<div class='turn-banner white-turn'>⚪ Your Turn</div>",unsafe_allow_html=True)
-    elif st.session_state.turn=="B" and not st.session_state.game_over:
-        st.markdown("<div class='turn-banner black-turn'>⚫ AI is Thinking...</div>",unsafe_allow_html=True)
+    if not st.session_state.game_over:
+        if st.session_state.turn=="W":
+            st.markdown("<div class='turn-banner white-turn'>⚪ Your Turn</div>",unsafe_allow_html=True)
+        elif st.session_state.turn=="B":
+            st.markdown("<div class='turn-banner black-turn'>⚫ AI is Thinking...</div>",unsafe_allow_html=True)
 
     col1,col2 = st.columns([2,1])
     depth = col1.slider("AI Depth",1,4,DEFAULT_SEARCH_DEPTH)
