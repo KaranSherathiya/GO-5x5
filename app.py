@@ -8,6 +8,27 @@ INSTANT_WIN_THRESHOLD = 15  # points lead for instant win
 
 st.set_page_config(page_title="Mini-Go AI", page_icon="⚫", layout="wide")
 
+# --- NEW CREATIVE HEADING ---
+st.markdown(
+    """
+    <style>
+    .title-go {
+        font-size: 64px;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 20px;
+        background: -webkit-linear-gradient(45deg, #111 50%, #f9fafb 50%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-family: 'Georgia', serif;
+    }
+    </style>
+    <h1 class="title-go">Go</h1>
+    """,
+    unsafe_allow_html=True
+)
+# -----------------------------
+
 st.markdown(
     """
     <style>
@@ -169,18 +190,24 @@ def ai_move(depth):
     start_time = time.time()
     best_val, best_move = None, None
 
+    # Create a list of all possible moves and shuffle it
+    possible_moves = []
     for r in range(BOARD_SIZE):
         for c in range(BOARD_SIZE):
-            new_b = apply_move(st.session_state.board,r,c,"B")
-            if not new_b: continue
-            val, _ = minimax(new_b, depth-1, -math.inf, math.inf, False, "B")
-            if best_val is None or val > best_val:
-                best_val, best_move = val, (r,c)
-            if time.time() - start_time > 2:  # cap AI time
-                break
-        if time.time() - start_time > 2:
-            break
+            if st.session_state.board[r][c] == ".":
+                possible_moves.append((r, c))
+    random.shuffle(possible_moves)
 
+    # Find the best move using minimax
+    for r, c in possible_moves:
+        new_b = apply_move(st.session_state.board,r,c,"B")
+        if not new_b: continue
+        val, _ = minimax(new_b, depth-1, -math.inf, math.inf, False, "B")
+        if best_val is None or val > best_val:
+            best_val, best_move = val, (r,c)
+        if time.time() - start_time > 2:  # cap AI time
+            break
+    
     if best_move:
         new_b = apply_move(st.session_state.board,best_move[0],best_move[1],"B")
         if new_b:
@@ -198,12 +225,12 @@ with col_sidebar:
     st.subheader("📊 Advantage Meter")
     val = heuristic(st.session_state.board,"B")
     max_range = BOARD_SIZE*BOARD_SIZE
-    pct = int((val + max_range) / (2*max_range) * 100)
+    pct = int((val + max_range) / (2*max_range) * 100) if max_range > 0 else 50
     st.markdown(
         f"""
         <div style="height:300px;width:40px;border-radius:8px;overflow:hidden;
         background:linear-gradient(to top,#111 0%,#111 {pct}%,#f9fafb {pct}%,#f9fafb 100%);
-        margin:auto"></div>
+        margin:auto; border: 1px solid #ddd;"></div>
         <p style="text-align:center;font-weight:bold">⚫ {pct}% | ⚪ {100-pct}%</p>
         """,
         unsafe_allow_html=True
@@ -218,6 +245,7 @@ with col_sidebar:
             st.session_state.ai_thinking = False
             st.session_state.game_over = False
             st.session_state.forced_winner = None
+            st.rerun()
 
 with col_board:
     if not st.session_state.game_over:
@@ -235,16 +263,24 @@ with col_board:
         st.session_state.ai_thinking = False
         st.session_state.game_over = False
         st.session_state.forced_winner = None
+        st.rerun()
 
     for r in range(BOARD_SIZE):
         cols = st.columns(BOARD_SIZE)
         for c in range(BOARD_SIZE):
             cell = st.session_state.board[r][c]
             label = "⚪" if cell=="W" else "⚫" if cell=="B" else "➕"
-            if cell=="." and st.session_state.turn=="W" and not st.session_state.game_over:
-                if cols[c].button(label,key=f"{r}-{c}"): play_human(r,c)
-            else:
-                cols[c].button(label,key=f"{r}-{c}",disabled=True)
+            is_disabled = (
+                cell != "." or 
+                st.session_state.turn != "W" or 
+                st.session_state.game_over or 
+                st.session_state.ai_thinking
+            )
+            
+            if cols[c].button(label, key=f"{r}-{c}", disabled=is_disabled):
+                play_human(r, c)
+                st.rerun()
 
     if st.session_state.turn=="B" and not st.session_state.ai_thinking and not st.session_state.game_over:
         ai_move(depth)
+        st.rerun()
