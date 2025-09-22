@@ -8,7 +8,7 @@ INSTANT_WIN_THRESHOLD = 15  # points lead for instant win
 
 st.set_page_config(page_title="Mini-Go AI", page_icon="⚫", layout="wide")
 
-# --- NEW CREATIVE HEADING ---
+# --- HEADING WITH CONTRASTING COLORS ---
 st.markdown(
     """
     <style>
@@ -17,7 +17,8 @@ st.markdown(
         font-weight: bold;
         text-align: center;
         margin-bottom: 20px;
-        background: -webkit-linear-gradient(45deg, #111 50%, #f9fafb 50%);
+        /* Updated gradient with bright, contrasting colors */
+        background: -webkit-linear-gradient(45deg, #00F2FE 50%, #EBEBEB 50%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         font-family: 'Georgia', serif;
@@ -27,7 +28,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-# -----------------------------
+# ----------------------------------------
 
 st.markdown(
     """
